@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-type Time = isize; // allowing negative times can be useful occasionally
+pub type Time = isize; // allowing negative times can be useful occasionally
 
 /// Job with release time, processing time and due time
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
