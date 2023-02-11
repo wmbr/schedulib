@@ -147,6 +147,55 @@ pub fn edd_preemptive(mut jobs: Vec<Job>) -> JobScheduleWithPreemptions {
 	}
 }
 
+
+/// Carlier's algorithm for 1|r_j|L_max
+/// Uses Schrage's heuristic and a branch-and-bound approach to solve the problem.
+/// Note that the worst-case running time is exponential (the problem is strongly NP-hard).
+/// 
+/// See [J. Carlier: "The one-machine sequencing problem" (1982); doi:10.1016/S0377-2217(82)80007-6]
+///
+/// # Arguments
+///
+/// * `jobs`: A list of jobs.
+///
+pub fn carlier(jobs: Vec<Job>) -> JobSchedule {
+	if jobs.is_empty() {
+		return JobSchedule::new(vec![])
+	}
+	let schedule = schrage(jobs);
+	let jobs = &schedule.jobs;
+	let (a, p) = critical_path(&schedule);
+
+	// find last job on the critical path with a later due date than p
+	let c = match (a..p).rev().find(|i| {
+		jobs[*i].due_time > jobs[p].due_time
+	}) {
+		None => return schedule, // found schedule is already optimal
+		Some(c) => c,
+	};
+
+	unimplemented!()
+}
+
+
+fn critical_path(schedule: &JobSchedule) -> (usize, usize) {
+	let jobs = &schedule.jobs;
+	let latenesses = jobs.iter().enumerate().map(|(i, job)|
+		(i, schedule.starting_times[i] + job.processing_time - job.due_time)
+	);
+	// p is the index of the job of maximum lateness
+	let (p, _) = latenesses.max_by_key(
+		|(i, lateness)| *lateness
+	).expect("job list is empty");
+
+	// find last job a <= p which had idle time before it
+	let a = (1..=p).rev().find(|i| {
+		jobs[*i].release_time > schedule.starting_times[*i-1] + jobs[*i-1].processing_time
+	}).unwrap_or(0);
+	(a, p)
+}
+
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -202,5 +251,11 @@ mod tests {
 		let expected_result = JobScheduleWithPreemptions{ jobs, timetable };
 		let result = edd_preemptive(jobs1());
 		assert_eq!(result, expected_result);
+	}
+
+	#[test]
+	fn test_critical_path() {
+		let schedule = JobSchedule::new(jobs1());
+		assert_eq!(critical_path(&schedule), (0, 5));
 	}
 }
