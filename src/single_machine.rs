@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job, JobList, JobSchedule};
+use crate::jobs::{Time, Job, JobSchedule, JobScheduleWithPreemptions};
 use std::cmp;
 use std::collections::BinaryHeap;
 
@@ -42,7 +42,7 @@ impl PartialEq for SchrageJob {
 ///
 /// * `jobs`: A list of jobs.
 ///
-pub fn schrage(mut jobs: Vec<Job>) -> JobList {
+pub fn schrage(mut jobs: Vec<Job>) -> JobSchedule {
 	// sort by descending release time
 	// because we want to pop the jobs with lowest release time first
 	jobs.sort_unstable_by_key(|x| cmp::Reverse(x.release_time));
@@ -51,7 +51,7 @@ pub fn schrage(mut jobs: Vec<Job>) -> JobList {
 	// Time tracking variable
 	let mut t: Time = 0;
 	// The final sequence in which the jobs should be run
-	let mut schedule: JobList = JobList{ jobs: Vec::new() };
+	let mut schedule = Vec::new();
 
 	// Iterate over jobs in order of release time
 	while !jobs.is_empty() || !ready_to_run.is_empty() {
@@ -66,7 +66,7 @@ pub fn schrage(mut jobs: Vec<Job>) -> JobList {
 		// If there are jobs that are ready to run, schedule them
 		match ready_to_run.pop() {
 			Some(cmp::Reverse(sjob)) => {
-				schedule.jobs.push(sjob.job);
+				schedule.push(sjob.job);
 				t += sjob.job.processing_time;
 			},
 			None => {
@@ -77,7 +77,7 @@ pub fn schrage(mut jobs: Vec<Job>) -> JobList {
 			}
 		};
 	}
-	schedule
+	JobSchedule::new(schedule)
 }
 
 
@@ -90,7 +90,7 @@ pub fn schrage(mut jobs: Vec<Job>) -> JobList {
 ///
 /// * `jobs`: A list of jobs.
 ///
-pub fn edd_preemptive(mut jobs: Vec<Job>) -> JobSchedule {
+pub fn edd_preemptive(mut jobs: Vec<Job>) -> JobScheduleWithPreemptions {
 	// sort by ascending release time
 	jobs.sort_unstable_by_key(|x| x.release_time);
 	// A list of jobs that in a current moment are ready to run, sorted by descending priority
@@ -141,7 +141,7 @@ pub fn edd_preemptive(mut jobs: Vec<Job>) -> JobSchedule {
 			}
 		};
 	}
-	JobSchedule{
+	JobScheduleWithPreemptions{
 		jobs,
 		timetable,
 	}
@@ -165,17 +165,15 @@ mod tests {
 
 	#[test]
 	fn test_schrage_1() {
-		let expected_result = JobList {
-			jobs: vec![
-				Job::new(0, 6, 17),
-				Job::new(10, 5, 15),
-				Job::new(13, 6, 25),
-				Job::new(20, 4, 24),
-				Job::new(11, 7, 32),
-				Job::new(31, 1, 33),
-				Job::new(30, 3, 36),
-			],
-		};
+		let expected_result = JobSchedule::new(vec![
+			Job::new(0, 6, 17),
+			Job::new(10, 5, 15),
+			Job::new(13, 6, 25),
+			Job::new(20, 4, 24),
+			Job::new(11, 7, 32),
+			Job::new(31, 1, 33),
+			Job::new(30, 3, 36),
+		]);
 		let result = schrage(jobs1());
 		assert_eq!(result, expected_result);
 	}
@@ -201,7 +199,7 @@ mod tests {
 			(32, 6),
 			(33, 5),
 		];
-		let expected_result = JobSchedule{ jobs, timetable };
+		let expected_result = JobScheduleWithPreemptions{ jobs, timetable };
 		let result = edd_preemptive(jobs1());
 		assert_eq!(result, expected_result);
 	}

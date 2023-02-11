@@ -21,51 +21,49 @@ impl Job {
 	}
 }
 
+/// A schedule of jobs on a single machine (without preemptions)
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct JobList {
+pub struct JobSchedule {
 	pub jobs: Vec<Job>,
+	pub starting_times: Vec<Time>,
 }
 
-impl JobList {
-	/// Returns the makespan of this JobList (if all jobs are executed on a single machine).
-	pub fn makespan(&self) -> Time {
-		let mut t = 0; // current time
-
-		for job in self.jobs.iter() {
-			if job.release_time > t {
-				t = job.release_time + job.processing_time;
-			} else {
-				t += job.processing_time;
-			}
+impl JobSchedule {
+	pub fn new(jobs: Vec<Job>) -> Self {
+		let starting_times = jobs.iter().scan(0, |time, job| {
+			let start_time = max(*time, job.release_time);
+			*time = start_time + job.processing_time;
+			Some(start_time)
+		}).collect();
+		Self {
+			jobs,
+			starting_times,
 		}
-		t
+	}
+
+	/// Returns the makespan of this JobSchedule.
+	pub fn makespan(&self) -> Time {
+		self.jobs.last().map(|job| job.processing_time).unwrap_or(0)
+			+ self.starting_times.last().unwrap_or(&0)
 	}
 
 	pub fn lateness(&self) -> Time {
-		let mut t = 0; // current time
-		let mut lateness = Time::MIN;
-		for job in self.jobs.iter() {
-			if job.release_time > t {
-				t = job.release_time + job.processing_time;
-			} else {
-				t += job.processing_time;
-			}
-			lateness = max(lateness, t - job.due_time);
-		}
-		lateness
+		self.jobs.iter().enumerate().map(|(i, job)| {
+			self.starting_times[i] + job.processing_time - job.due_time
+		}).max().expect("JobSchedule is empty")
 	}
 }
 
 /// A job execution schedule for a single machine with possible preemptions, assigning to every job one or multiple execution times.
 /// If a job is assigned multiple execution times, then it was preempted by some other job in between.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct JobSchedule {
+pub struct JobScheduleWithPreemptions {
 	pub jobs: Vec<Job>,
 	/// For every time a job is started or resumed, this contains an entry with the time and the job's position in [job_list].
 	pub timetable: Vec<(Time, usize)>,
 }
 
-impl JobSchedule {
+impl JobScheduleWithPreemptions {
 	/// compute the maximum lateness of the schedule
 	pub fn lateness(&self) -> Time {
 		let mut lateness = Time::MIN;
@@ -118,54 +116,50 @@ mod tests {
 
 	use super::*;
 
-	fn joblist1() -> JobList {
-		JobList {
-			jobs: vec![
-				Job::new(10, 5, 19),
-				Job::new(13, 6, 20),
-				Job::new(11, 7, 24),
-				Job::new(30, 3, 35),
-				Job::new(0, 6, 17),
-				Job::new(30, 2, 38),
-			],
-		}
+	fn JobSchedule1() -> JobSchedule {
+		JobSchedule::new(vec![
+			Job::new(10, 5, 19),
+			Job::new(13, 6, 20),
+			Job::new(11, 7, 24),
+			Job::new(30, 3, 35),
+			Job::new(0, 6, 17),
+			Job::new(30, 2, 38),
+		])
 	}
 
 	#[test]
 	fn test_makespan_1() {
-		assert_eq!(joblist1().makespan(), 41);
+		assert_eq!(JobSchedule1().makespan(), 41);
 	}
 
 	#[test]
 	fn test_lateness_1() {
-		assert_eq!(joblist1().lateness(), 22)
+		assert_eq!(JobSchedule1().lateness(), 22)
 	}
 
-	fn joblist2() -> JobList {
-		JobList {
-			jobs: vec![
-				Job::new(0, 6, 17),
-				Job::new(10, 5, 17),
-				Job::new(13, 6, 26),
-				Job::new(11, 7, 35),
-				Job::new(20, 4, 34),
-				Job::new(30, 3, 38),
-				Job::new(30, 2, 40),
-			],
-		}
+	fn JobSchedule2() -> JobSchedule {
+		JobSchedule::new(vec![
+			Job::new(0, 6, 17),
+			Job::new(10, 5, 17),
+			Job::new(13, 6, 26),
+			Job::new(11, 7, 35),
+			Job::new(20, 4, 34),
+			Job::new(30, 3, 38),
+			Job::new(30, 2, 40),
+		])
 	}
 
 	#[test]
 	fn test_makespan_2() {
-		assert_eq!(joblist2().makespan(), 37);
+		assert_eq!(JobSchedule2().makespan(), 37);
 	}
 
 	#[test]
 	fn test_lateness_2() {
-		assert_eq!(joblist2().lateness(), -2);
+		assert_eq!(JobSchedule2().lateness(), -2);
 	}
 
-	fn schedule1() -> JobSchedule {
+	fn schedule1() -> JobScheduleWithPreemptions {
 		let jobs = vec![
 			Job::new(0, 14, 20), // 0
 			Job::new(5, 8, 15),  // 1
@@ -177,7 +171,7 @@ mod tests {
 			(13, 0),
 			(42, 2),
 		];
-		JobSchedule{
+		JobScheduleWithPreemptions{
 			jobs,
 			timetable,
 		}
@@ -193,7 +187,7 @@ mod tests {
 		assert_eq!(schedule1().lateness(), 22-20);
 	}
 
-	fn schedule2() -> JobSchedule {
+	fn schedule2() -> JobScheduleWithPreemptions {
 		let jobs = vec![
 			Job::new(3, 20, 25), // 0
 			Job::new(5, 8, 24),  // 1
@@ -203,7 +197,7 @@ mod tests {
 			(16, 1),
 			(24, 0),
 		];
-		JobSchedule{
+		JobScheduleWithPreemptions{
 			jobs,
 			timetable,
 		}
