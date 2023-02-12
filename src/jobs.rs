@@ -1,113 +1,78 @@
 use std::cmp::max;
 
 pub type Time = isize; // allowing negative times can be useful occasionally
+pub type Job = usize; // jobs are ids
 
-/// Job with release time, processing time and due time
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Job {
-	pub release_time: Time,
-	pub processing_time: Time, // should be nonnegative
-	pub due_time: Time,
-}
-
-
-impl Job {
-	pub fn new(release_time: Time, processing_time: Time, due_time: Time) -> Job {
-		Job {
-			release_time,
-			processing_time,
-			due_time,
-		}
-	}
+/// A job with an assigned starting time and duration
+/// Durations should be positive
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
+pub struct JobRun {
+	pub time: Time,
+	pub job: Job,
+	pub duration: Time,
 }
 
 /// A schedule of jobs on a single machine (without preemptions)
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct JobSchedule {
-	pub jobs: Vec<Job>,
-	pub starting_times: Vec<Time>,
+	/// List of job executions, sorted by time.
+	/// If jobs can be preempted, the same job may appear in multiple entries.
+	pub schedule: Vec<JobRun>,
 }
 
 impl JobSchedule {
-	pub fn new(jobs: Vec<Job>) -> Self {
-		let starting_times = jobs.iter().scan(0, |time, job| {
-			let start_time = max(*time, job.release_time);
-			*time = start_time + job.processing_time;
-			Some(start_time)
+	pub fn from_durations(durations: &[Time]) -> JobSchedule {
+		let mut time = 0;
+		let schedule = durations.iter().enumerate().map(|(i, d)| {
+			time += d;
+			JobRun{
+				time: time - d,
+				job: i,
+				duration: *d,
+			}
 		}).collect();
-		Self {
-			jobs,
-			starting_times,
-		}
+		JobSchedule{ schedule }
+	}
+
+	pub fn from_durations_releasetimes(durations: &[Time], release_times: &[Time]) -> JobSchedule {
+		JobSchedule::from_order_durations_releasetimes(
+			&(0..durations.len()).collect::<Vec<Job>>(),
+			durations,
+			release_times
+		)
+	}
+
+	pub fn from_order_durations_releasetimes(
+		order: &[Job],
+		durations: &[Time],
+		release_times: &[Time]
+	) -> JobSchedule
+	{
+		let mut time = 0;
+		let schedule = order.iter().map(|job| {
+			time = max(time, release_times[*job]) + durations[*job];
+			JobRun{
+				time: time - durations[*job],
+				job: *job,
+				duration: durations[*job],
+			}
+		}).collect();
+		JobSchedule{ schedule }
 	}
 
 	/// Returns the makespan of this JobSchedule.
 	pub fn makespan(&self) -> Time {
-		self.jobs.last().map(|job| job.processing_time).unwrap_or(0)
-			+ self.starting_times.last().unwrap_or(&0)
+		self.schedule.last().map(|run| run.time + run.duration).unwrap_or(0)
 	}
 
-	pub fn lateness(&self) -> Time {
-		self.jobs.iter().enumerate().map(|(i, job)| {
-			self.starting_times[i] + job.processing_time - job.due_time
+	/// Returns the maximum lateness of this JobSchedule for the given due dates
+	///
+	/// # Arguments:
+	/// * `due_times` A vector containing at position `i` the due date for job `i`.
+	pub fn lateness(&self, due_times: &[Time]) -> Time {
+		self.schedule.iter().map(|run| {
+			run.time + run.duration - due_times[run.job]
 		}).max().expect("JobSchedule is empty")
-	}
-}
-
-/// A job execution schedule for a single machine with possible preemptions, assigning to every job one or multiple execution times.
-/// If a job is assigned multiple execution times, then it was preempted by some other job in between.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct JobScheduleWithPreemptions {
-	pub jobs: Vec<Job>,
-	/// For every time a job is started or resumed, this contains an entry with the time and the job's position in [job_list].
-	pub timetable: Vec<(Time, usize)>,
-}
-
-impl JobScheduleWithPreemptions {
-	/// compute the maximum lateness of the schedule
-	pub fn lateness(&self) -> Time {
-		let mut lateness = Time::MIN;
-		let mut processing_times_remaining : Vec<Time> =
-			self.jobs.iter().map(|job| job.processing_time).collect();
-		for pair in self.timetable.windows(2) {
-			let [(time1, index1), (time2, _)] = <&[_; 2]>::try_from(pair).unwrap();
-			lateness = max(
-				lateness,
-				time1 + processing_times_remaining[*index1] - self.jobs[*index1].due_time
-			);
-			processing_times_remaining[*index1] -= time2 - time1;
-			if processing_times_remaining[*index1] < 0 {
-				processing_times_remaining[*index1] = 0;
-			}
-		}
-		let (last_time, last_index) = match self.timetable.last() {
-			Some(x) => x,
-			None => return 0,
-		};
-		lateness = max(
-			lateness,
-			last_time + processing_times_remaining[*last_index] - self.jobs[*last_index].due_time
-		);
-		lateness
-	}
-
-	/// compute the makespan of the schedule, i.e., the time at which all jobs are completed
-	pub fn makespan(&self) -> Time {
-		let (last_time, last_index) = match self.timetable.last() {
-			Some(x) => x,
-			None => return 0,
-		};
-		let mut processing_time_remaining = self.jobs[*last_index].processing_time;
-		for pair in self.timetable.windows(2) {
-			let [(time1, index1), (time2, _)] = <&[_; 2]>::try_from(pair).unwrap();
-			if *index1 == *last_index {
-				processing_time_remaining -= time2 - time1;
-				if processing_time_remaining < 0 {
-					processing_time_remaining = 0;
-				}
-			}
-		}
-		*last_time + processing_time_remaining
 	}
 }
 
@@ -116,100 +81,82 @@ mod tests {
 
 	use super::*;
 
-	fn JobSchedule1() -> JobSchedule {
-		JobSchedule::new(vec![
-			Job::new(10, 5, 19),
-			Job::new(13, 6, 20),
-			Job::new(11, 7, 24),
-			Job::new(30, 3, 35),
-			Job::new(0, 6, 17),
-			Job::new(30, 2, 38),
-		])
+	fn example_schedule_1() -> JobSchedule {
+		JobSchedule::from_durations_releasetimes(
+			&vec![ 5,  6,  7,  3,  6,  2],
+			&vec![10, 13, 11, 30,  0, 30]
+		)
 	}
 
 	#[test]
 	fn test_makespan_1() {
-		assert_eq!(JobSchedule1().makespan(), 41);
+		assert_eq!(example_schedule_1().makespan(), 41);
 	}
 
 	#[test]
 	fn test_lateness_1() {
-		assert_eq!(JobSchedule1().lateness(), 22)
+		let due_times = vec![19, 20, 24, 35, 17, 38];
+		assert_eq!(example_schedule_1().lateness(&due_times), 22)
 	}
 
-	fn JobSchedule2() -> JobSchedule {
-		JobSchedule::new(vec![
-			Job::new(0, 6, 17),
-			Job::new(10, 5, 17),
-			Job::new(13, 6, 26),
-			Job::new(11, 7, 35),
-			Job::new(20, 4, 34),
-			Job::new(30, 3, 38),
-			Job::new(30, 2, 40),
-		])
+	fn example_schedule_2() -> JobSchedule {
+		JobSchedule::from_durations_releasetimes(
+			&vec![ 6,  5,  6,  7,  4,  3,  2],
+			&vec![ 0, 10, 13, 11, 20, 30, 30]
+		)
 	}
 
 	#[test]
 	fn test_makespan_2() {
-		assert_eq!(JobSchedule2().makespan(), 37);
+		assert_eq!(example_schedule_2().makespan(), 37);
 	}
 
 	#[test]
 	fn test_lateness_2() {
-		assert_eq!(JobSchedule2().lateness(), -2);
+		let due_times = vec![17, 17, 26, 35, 34, 38, 40];
+		assert_eq!(example_schedule_2().lateness(&due_times), -2);
 	}
 
-	fn schedule1() -> JobScheduleWithPreemptions {
-		let jobs = vec![
-			Job::new(0, 14, 20), // 0
-			Job::new(5, 8, 15),  // 1
-			Job::new(42, 10, 52),  // 2
+	// schedule with preemptions:
+	fn example_schedule_3() -> JobSchedule {
+		let schedule = vec![
+			JobRun{ time: 0,  job: 0, duration: 5 },
+			JobRun{ time: 5,  job: 1, duration: 8 },
+			JobRun{ time: 13, job: 0, duration: 9 },
+			JobRun{ time: 42, job: 2, duration: 10 },
 		];
-		let timetable = vec![
-			(0, 0),
-			(5, 1),
-			(13, 0),
-			(42, 2),
-		];
-		JobScheduleWithPreemptions{
-			jobs,
-			timetable,
-		}
+		JobSchedule{ schedule }
 	}
 
 	#[test]
-	fn test_schedule_makespan_1() {
-		assert_eq!(schedule1().makespan(), 42+10);
+	fn test_makespan_3() {
+		assert_eq!(example_schedule_3().makespan(), 42+10);
 	}
 
 	#[test]
-	fn test_schedule_lateness_1() {
-		assert_eq!(schedule1().lateness(), 22-20);
+	fn test_lateness_3() {
+		let due_times = vec![20, 15, 52];
+		assert_eq!(example_schedule_3().lateness(&due_times), 13+9-20);
 	}
 
-	fn schedule2() -> JobScheduleWithPreemptions {
-		let jobs = vec![
-			Job::new(3, 20, 25), // 0
-			Job::new(5, 8, 24),  // 1
+	// schedule with preemptions:
+	fn example_schedule_4() -> JobSchedule {
+		let schedule = vec![
+			JobRun{ time: 3,  job: 0, duration: 13 },
+			JobRun{ time: 16, job: 1, duration: 8 },
+			JobRun{ time: 24, job: 0, duration: 7 },
 		];
-		let timetable = vec![
-			(3, 0),
-			(16, 1),
-			(24, 0),
-		];
-		JobScheduleWithPreemptions{
-			jobs,
-			timetable,
-		}
+		JobSchedule{ schedule }
 	}
 
 	#[test]
 	fn test_schedule_makespan_2() {
-		assert_eq!(schedule2().makespan(), 24 + 7);
+		assert_eq!(example_schedule_4().makespan(), 24 + 7);
 	}
 
 	#[test]
 	fn test_schedule_lateness_2() {
-		assert_eq!(schedule2().lateness(), 6);
+		let due_times = vec![25, 24];
+		assert_eq!(example_schedule_4().lateness(&due_times), 24 + 7 - 25);
 	}
 }
