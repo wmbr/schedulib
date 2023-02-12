@@ -1,5 +1,5 @@
 use crate::jobs::{Time, Job, JobSchedule, JobRun};
-use std::cmp::{max, min};
+use std::cmp::{max, min, Reverse};
 use std::collections::BinaryHeap;
 
 
@@ -146,23 +146,155 @@ pub fn edd_preemptive(
 ///
 /// * `jobs`: A list of jobs.
 ///
-pub fn carlier(jobs: Vec<Job>) -> JobSchedule {
-	if jobs.is_empty() {
-		return JobSchedule::new(vec![])
+pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[Time]) -> JobSchedule {
+	if processing_times.is_empty() {
+		return JobSchedule{ schedule: vec![] }
 	}
-	let schedule = schrage(jobs);
-	let jobs = &schedule.jobs;
-	let (a, p) = critical_path(&schedule);
+	let mut subproblems = BinaryHeap::new();
+	subproblems.push( Reverse((
+		Time::MIN,
+		CarlierNode{
+			release_times: release_times.to_vec(),
+			due_times: due_times.to_vec(),
+		}
+	)));
+	let mut best_lateness = Time::MAX;
+	let mut best_schedule = None;
+	while let Some(Reverse((lower_bound, node))) = subproblems.pop() {
+		if lower_bound >= best_lateness {
+			continue;
+		}
+		let result = carlier_iteration(
+			&processing_times,
+			node.release_times,
+			node.due_times,
+			best_lateness
+		);
+		let lateness = result.schedule.lateness(&due_times);
+		if lateness < best_lateness {
+			best_lateness = lateness;
+			best_schedule = Some(result.schedule);
+		}
+		if result.lower_bound < best_lateness && result.subproblems.is_some() {
+			let children = result.subproblems.unwrap();
+			let new_lower_bound = max(result.lower_bound, lower_bound);
+			subproblems.push( Reverse((
+				new_lower_bound,
+				children.0
+			)));
+			subproblems.push( Reverse((
+				new_lower_bound,
+				children.1
+			)));
+		}
+	}
+	best_schedule.unwrap()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct CarlierNode {
+	release_times: Vec<Time>,
+	due_times: Vec<Time>,
+}
+
+#[derive(Debug, Clone)]
+struct CarlierResult {
+	schedule: JobSchedule,
+	lower_bound: Time,
+	subproblems: Option<(CarlierNode, CarlierNode)> // if this is None, the given schedule is optimal
+}
+
+fn carlier_iteration(
+	processing_times: &[Time],
+	mut release_times: Vec<Time>,
+	mut due_times: Vec<Time>,
+	upper_bound: Time
+) -> CarlierResult
+{
+	let schedule = schrage(processing_times, &release_times, &due_times);
+	let (a, p) = critical_path(&schedule, &due_times);
+	let sched = &schedule.schedule;
+	let pjob = sched[p].job;
 
 	// find last job on the critical path with a later due date than p
-	let c = match (a..p).rev().find(|i| {
-		jobs[*i].due_time > jobs[p].due_time
+	let c = match sched[a..p].iter().rev().position(|run| {
+		due_times[run.job] > due_times[pjob]
 	}) {
-		None => return schedule, // found schedule is already optimal
-		Some(c) => c,
+		None => return CarlierResult{  // schedule is already optimal
+			lower_bound: schedule.lateness(&due_times),
+			schedule,
+			subproblems: None
+		},
+		Some(i) => p - 1 - i,
 	};
 
-	unimplemented!()
+	let crit_set = c+1..=p;
+	let cjob = sched[c].job;
+
+	// the critical duration is the total processing time of the critical set:
+	let crit_duration: Time = sched[crit_set.clone()].iter().map(|run| run.duration ).sum();
+	let crit_min_release = sched[crit_set.clone()].iter()
+		.map(|run| release_times[run.job]).min().unwrap();
+	 // this is the latest due time among the critical set:
+	let crit_max_due = due_times[pjob];
+	// this is a lower bound on the maximum lateness of any schedule:
+	let crit_bound = crit_duration + crit_min_release - crit_max_due;
+
+	for i in (a..=c).chain(p+1..sched.len()) {
+		let job = sched[i].job;
+		if processing_times[job] > upper_bound - crit_bound {
+			// this job cannot be scheduled inside the critical set
+
+			if release_times[job] + processing_times[job] + crit_duration 
+				> upper_bound + crit_max_due
+			{
+				// this job has to be scheduled after the critical set
+				release_times[job] = max(
+					release_times[job],
+					crit_min_release + crit_duration
+				);
+			} else if crit_min_release + crit_duration + processing_times[job]
+				> upper_bound + due_times[job]
+			{
+				// this job has to be scheduled before the critical set
+				due_times[job] = min(
+					due_times[job],
+					crit_max_due - crit_duration
+				);
+			}
+		}
+	}
+
+	let lower_bound = max(
+		// lower bound for c+1..p
+		crit_bound,
+		// lower bound for c..p
+		crit_duration + min(crit_min_release, release_times[cjob]) - due_times[cjob]
+	);
+
+	// subproblem where we force c to be processed before all of crit_set:
+	let mut subproblem1 = CarlierNode {
+		release_times: release_times.clone(),
+		due_times: due_times.clone(),
+	};
+	// force c before a..p:
+	subproblem1.due_times[cjob] = min(due_times[cjob], due_times[pjob] - crit_duration);
+
+	// subproblem where we force c to be processed after all of crit_set:
+	let mut subproblem2 = CarlierNode {
+		release_times,
+		due_times,
+	};
+	// force c after a..p:
+	subproblem2.release_times[cjob] = max(
+		subproblem2.release_times[cjob],
+		crit_min_release + crit_duration
+	);
+	CarlierResult{
+		schedule,
+		lower_bound,
+		subproblems: Some((subproblem1, subproblem2))
+	}
 }
 
 
@@ -248,14 +380,37 @@ mod tests {
 	}
 
 	#[test]
+	fn test_critical_path_2() {
+		let (p, r, d) = example_2();
+		let schedule = JobSchedule::from_order_durations_releasetimes(
+			&vec![5, 0, 1, 2, 3, 4, 6],
+			&p,
+			&r
+		);
+		assert_eq!(critical_path(&schedule, &d), (1, 4));
+	}
+
+	#[test]
+	fn test_schrage_2() {
+		let (p, r, d) = example_2();
+		let schedule = schrage(&p, &r, &d);
+		let expected_result = JobSchedule::from_order_durations_releasetimes(
+			&vec![5, 0, 1, 2, 3, 4, 6],
+			&p,
+			&r
+		);
+		assert_eq!(schedule, expected_result);
+	}
+
+	#[test]
 	fn test_carlier() {
 		let (p, r, d) = example_2();
-		let schedule = carlier(p, r, d);
+		let schedule = carlier(&p, &r, &d);
 		let expected_result = JobSchedule::from_order_durations_releasetimes(
 			&vec![5, 2, 1, 3, 0, 4, 6],
 			&p,
 			&r
 		);
-		assert_eq!(schedule.jobs, expected_result);
+		assert_eq!(schedule, expected_result);
 	}
 }
