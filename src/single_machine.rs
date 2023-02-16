@@ -176,16 +176,15 @@ pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[T
 			best_schedule = Some(result.schedule);
 		}
 		if result.lower_bound < best_lateness && result.subproblems.is_some() {
-			let children = result.subproblems.unwrap();
 			let new_lower_bound = max(result.lower_bound, lower_bound);
-			subproblems.push( Reverse((
-				new_lower_bound,
-				children.0
-			)));
-			subproblems.push( Reverse((
-				new_lower_bound,
-				children.1
-			)));
+			let children = result.subproblems.unwrap();
+			for child in children.into_iter() {
+				subproblems.push( Reverse((
+					new_lower_bound,
+					child
+				)));
+
+			}
 		}
 	}
 	best_schedule.unwrap()
@@ -201,7 +200,7 @@ struct CarlierNode {
 struct CarlierResult {
 	schedule: JobSchedule,
 	lower_bound: Time,
-	subproblems: Option<(CarlierNode, CarlierNode)> // if this is None, the given schedule is optimal
+	subproblems: Option<[CarlierNode; 2]> // if this is None, the given schedule is optimal
 }
 
 fn carlier_iteration(
@@ -293,7 +292,7 @@ fn carlier_iteration(
 	CarlierResult{
 		schedule,
 		lower_bound,
-		subproblems: Some((subproblem1, subproblem2))
+		subproblems: Some([subproblem1, subproblem2])
 	}
 }
 
