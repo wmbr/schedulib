@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::fmt;
 
 pub type Time = isize; // allowing negative times can be useful occasionally
 pub type Job = usize; // jobs are ids
@@ -73,6 +74,26 @@ impl JobSchedule {
 		self.schedule.iter().map(|run| {
 			run.time + run.duration - due_times[run.job]
 		}).max().expect("JobSchedule is empty")
+	}
+}
+
+impl fmt::Display for JobSchedule {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		if self.schedule.is_empty() {
+			write!(f, "(Empty JobSchedule)")
+		} else {
+			let maxlen = self.makespan().to_string().len();
+			for run in self.schedule.iter(){
+				write!(f,
+					"{:len$}-{:len$}: Job #{}\n",
+					run.time,
+					run.time + run.duration,
+					run.job,
+					len = maxlen
+				)?;
+			}
+			Ok(())
+		}
 	}
 }
 
