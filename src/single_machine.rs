@@ -403,7 +403,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_carlier() {
+	fn test_carlier_example_2() {
 		let (p, r, d) = example_2();
 		let schedule = carlier(&p, &r, &d);
 		let expected_result = JobSchedule::from_order_durations_releasetimes(
@@ -412,5 +412,22 @@ mod tests {
 			&r
 		);
 		assert_eq!(schedule, expected_result);
+	}
+
+	fn example_3() -> (Vec<Time>, Vec<Time>, Vec<Time>) {
+		(
+			//    0    1    2    3    4    5    6    7    8    9
+			vec![ 4,   2,   5,   6,   3,   9,   2,   4,   1,   3], // processing
+			vec![20,  25,  38,  12,  24,   4,  21,   6,  37,  20], // release
+			vec![35,  34,  44,  32,  27,  25,  29,  31,  40,  44]  // due
+		)
+	}
+
+	#[test]
+	fn test_carlier_example_3() {
+		let (p, r, d) = example_3();
+		let schedule = carlier(&p, &r, &d);
+		println!("{}", schedule);
+		assert_eq!(schedule.lateness(&d), 0);
 	}
 }
