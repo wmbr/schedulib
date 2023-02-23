@@ -3,6 +3,7 @@ use std::fmt;
 
 pub type Time = isize; // allowing negative times can be useful occasionally
 pub type Job = usize; // jobs are ids
+pub type Machine = usize; // machines are ids
 
 /// A job with an assigned starting time and duration
 /// Durations should be positive
@@ -33,6 +34,10 @@ impl JobSchedule {
 			}
 		}).collect();
 		JobSchedule{ schedule }
+	}
+
+	pub fn new() -> JobSchedule {
+		JobSchedule { schedule: Vec::new() }
 	}
 
 	pub fn from_durations_releasetimes(durations: &[Time], release_times: &[Time]) -> JobSchedule {
