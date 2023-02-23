@@ -3,7 +3,11 @@ use std::cmp::max;
 use crate::jobs::{Time, Job, JobSchedule, JobRun, Machine};
 
 
-/// Makespan-minimization heuristic for scheduling on multiple unrelated machines with precedents constraints.
+/// Makespan-minimization heuristic for scheduling on multiple unrelated machines with precedence constraints,
+/// i.e. for R|prec|C_max.
+/// The heuristic always selects the available job whose processing time has the highest variance 
+/// among the machines. This job is then greedily scheduled on the fastest machine currently avaiable.
+/// 
 /// See Liu & Yang "A heuristic serial schedule algorithm for unrelated parallel machine scheduling with
 /// precedence constraints" (doi:10.4304/jsw.6.6.1146-1153)
 pub fn serial_schedule_heuristic(
