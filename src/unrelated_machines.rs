@@ -8,9 +8,17 @@ use crate::jobs::{Time, Job, JobSchedule, JobRun, Machine};
 /// The heuristic always selects the available job whose processing time has the highest variance 
 /// among the machines. This job is then greedily scheduled on the fastest machine currently avaiable.
 /// The running time is in O(jobs^2).
-/// 
+///
 /// See Liu & Yang "A heuristic serial schedule algorithm for unrelated parallel machine scheduling with
 /// precedence constraints" (doi:10.4304/jsw.6.6.1146-1153)
+///
+/// # Arguments
+/// * `processing_times`: Job processing times, where `processing_times[i][j]` is the time taken by machine `i` to process job `j`.
+/// * `precedents`: Job precedents, where `precedents[i]` are the jobs that need to be completed before job `i` can be started.
+/// 
+/// # Returns
+/// A list of schedules, one for each machine.
+///
 pub fn serial_schedule_heuristic(
 	processing_times: &[Vec<Time>],
 	precedents: Vec<Vec<Job>>
@@ -18,7 +26,7 @@ pub fn serial_schedule_heuristic(
 {
 	let m = processing_times.len(); // number of machines
 	let n = processing_times[0].len(); // number of jobs
-	assert!(m >= 1);
+	if m == 0 { return Vec::new(); }
 	let mut schedules = vec![JobSchedule::new(); m];
 	if n == 0 { return schedules; }
 	let mut time = 0;
@@ -31,11 +39,10 @@ pub fn serial_schedule_heuristic(
 			.map(|(i, _)| i)
 			.collect();
 		let (machine, job, duration) = serial_schedule_heuristic_pick_next(
-			&processing_times,
+			processing_times,
 			&idle_machines,
-			&pg.available_jobs()
+			pg.available_jobs()
 		);
-		dbg!((machine, job, duration));
 		schedules[machine].schedule.push(
 			JobRun{
 				time,
@@ -82,7 +89,7 @@ fn serial_schedule_heuristic_pick_next(
 	let machine;
 	let job;
 	let duration : Time;
-	assert!(idle_machines.len() > 0);
+	assert!(!idle_machines.is_empty());
 	if idle_machines.len() == 1 {
 		// schedule the shortest job
 		machine = idle_machines[0];
@@ -119,13 +126,13 @@ struct PrecedenceGraph {
 }
 
 impl PrecedenceGraph {
-	pub fn available_jobs(self: &Self) -> &[Job] {
+	pub fn available_jobs(&self) -> &[Job] {
 		&self.available
 	}
 
 	/// Marks the given job as completed,
 	/// thus removing it as a precondition for all other jobs.
-	pub fn mark_job_completed(self: &mut Self, job: Job) {
+	pub fn mark_job_completed(&mut self, job: Job) {
 		self.mark_job_running(job);
 		// remove the job from every other job's precedence list
 		for (i, pr) in self.precedents.iter_mut().enumerate() {
@@ -142,7 +149,7 @@ impl PrecedenceGraph {
 
 	/// Marks the given job as running,
 	/// thus removing it from the list of available jobs now and forever.
-	pub fn mark_job_running(self: &mut Self, job: Job) {
+	pub fn mark_job_running(&mut self, job: Job) {
 		if let Some(index) = self.available.iter().position(|&j| j == job) {
 			self.available.swap_remove(index);
 		}

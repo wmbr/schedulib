@@ -57,7 +57,7 @@ pub fn schrage(
 			}
 		};
 	}
-	JobSchedule::from_order_durations_releasetimes(&schedule, &processing_times, &release_times)
+	JobSchedule::from_order_durations_releasetimes(&schedule, processing_times, release_times)
 }
 
 
@@ -165,12 +165,12 @@ pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[T
 			continue;
 		}
 		let result = carlier_iteration(
-			&processing_times,
+			processing_times,
 			node.release_times,
 			node.due_times,
 			best_lateness
 		);
-		let lateness = result.schedule.lateness(&due_times);
+		let lateness = result.schedule.lateness(due_times);
 		if lateness < best_lateness {
 			best_lateness = lateness;
 			best_schedule = Some(result.schedule);

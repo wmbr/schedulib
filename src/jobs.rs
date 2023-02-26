@@ -89,8 +89,8 @@ impl fmt::Display for JobSchedule {
 		} else {
 			let maxlen = self.makespan().to_string().len();
 			for run in self.schedule.iter(){
-				write!(f,
-					"{:len$}-{:len$}: Job #{}\n",
+				writeln!(f,
+					"{:len$}-{:len$}: Job #{}",
 					run.time,
 					run.time + run.duration,
 					run.job,
