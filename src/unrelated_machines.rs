@@ -7,6 +7,7 @@ use crate::jobs::{Time, Job, JobSchedule, JobRun, Machine};
 /// i.e. for R|prec|C_max.
 /// The heuristic always selects the available job whose processing time has the highest variance 
 /// among the machines. This job is then greedily scheduled on the fastest machine currently avaiable.
+/// The running time is in O(jobs^2).
 /// 
 /// See Liu & Yang "A heuristic serial schedule algorithm for unrelated parallel machine scheduling with
 /// precedence constraints" (doi:10.4304/jsw.6.6.1146-1153)
@@ -214,4 +215,23 @@ mod tests {
 		assert!(schedules.iter().map(|s| s.makespan()).max().unwrap() <= 13);
 	}
 
+	#[test]
+	fn test_serial_schedule_heuristic_2() {
+		// this is the example given in doi:10.4304/jsw.6.6.1146-1153
+		let p = vec![
+			vec![3, 4, 8, 2,  5, 9, 3],
+			vec![9, 5, 2, 6, 10, 4, 8],
+		];
+		let prec = vec![
+			vec![],
+			vec![],
+			vec![0],
+			vec![],
+			vec![],
+			vec![1],
+			vec![2],
+		];
+		let schedules = serial_schedule_heuristic(&p, prec);
+		assert_eq!(schedules.iter().map(|s| s.makespan()).max().unwrap(), 13);
+	}
 }
