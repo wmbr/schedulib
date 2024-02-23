@@ -19,7 +19,7 @@ pub fn benchmark_carlier(c: &mut Criterion) {
 	let (p, r, d) = example_200_a();
 	c.bench_function("carlier", |b| b.iter(|| {
 		let schedule = carlier(black_box(&p), black_box(&r), black_box(&d));
-		assert_eq!(schedule.lateness(&d), 1415);
+		assert_eq!(schedule.max_lateness(&d), 1415);
 	}));
 }
 criterion_group!(benches, benchmark_carlier);

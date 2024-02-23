@@ -36,31 +36,42 @@ impl JobSchedule {
 		JobSchedule{ schedule }
 	}
 
+	pub fn from_order_durations<I>(order: I, durations: &[Time]) -> JobSchedule 
+	where I: Iterator<Item = Job>
+	{
+		JobSchedule::from_order_durations_releasetimes(
+			order,
+			durations,
+			&vec![0; durations.len()]
+		)
+	}
+
 	pub fn new() -> JobSchedule {
 		JobSchedule { schedule: Vec::new() }
 	}
 
 	pub fn from_durations_releasetimes(durations: &[Time], release_times: &[Time]) -> JobSchedule {
 		JobSchedule::from_order_durations_releasetimes(
-			&(0..durations.len()).collect::<Vec<Job>>(),
+			0..durations.len(),
 			durations,
 			release_times
 		)
 	}
 
-	pub fn from_order_durations_releasetimes(
-		order: &[Job],
+	pub fn from_order_durations_releasetimes<I>(
+		order: I,
 		durations: &[Time],
 		release_times: &[Time]
 	) -> JobSchedule
+	where I: Iterator<Item = Job>
 	{
 		let mut time = 0;
-		let schedule = order.iter().map(|job| {
-			time = max(time, release_times[*job]) + durations[*job];
+		let schedule = order.map(|job| {
+			time = max(time, release_times[job]) + durations[job];
 			JobRun{
-				time: time - durations[*job],
-				job: *job,
-				duration: durations[*job],
+				time: time - durations[job],
+				job: job,
+				duration: durations[job],
 			}
 		}).collect();
 		JobSchedule{ schedule }
@@ -75,7 +86,7 @@ impl JobSchedule {
 	///
 	/// # Arguments:
 	/// * `due_times` A vector containing at position `i` the due date for job `i`.
-	pub fn lateness(&self, due_times: &[Time]) -> Time {
+	pub fn max_lateness(&self, due_times: &[Time]) -> Time {
 		self.schedule.iter().map(|run| {
 			run.time + run.duration - due_times[run.job]
 		}).max().expect("JobSchedule is empty")
@@ -122,7 +133,7 @@ mod tests {
 	#[test]
 	fn test_lateness_1() {
 		let due_times = vec![19, 20, 24, 35, 17, 38];
-		assert_eq!(example_schedule_1().lateness(&due_times), 22)
+		assert_eq!(example_schedule_1().max_lateness(&due_times), 22)
 	}
 
 	fn example_schedule_2() -> JobSchedule {
@@ -140,7 +151,7 @@ mod tests {
 	#[test]
 	fn test_lateness_2() {
 		let due_times = vec![17, 17, 26, 35, 34, 38, 40];
-		assert_eq!(example_schedule_2().lateness(&due_times), -2);
+		assert_eq!(example_schedule_2().max_lateness(&due_times), -2);
 	}
 
 	// schedule with preemptions:
@@ -162,7 +173,7 @@ mod tests {
 	#[test]
 	fn test_lateness_3() {
 		let due_times = vec![20, 15, 52];
-		assert_eq!(example_schedule_3().lateness(&due_times), 13+9-20);
+		assert_eq!(example_schedule_3().max_lateness(&due_times), 13+9-20);
 	}
 
 	// schedule with preemptions:
@@ -183,6 +194,6 @@ mod tests {
 	#[test]
 	fn test_schedule_lateness_2() {
 		let due_times = vec![25, 24];
-		assert_eq!(example_schedule_4().lateness(&due_times), 24 + 7 - 25);
+		assert_eq!(example_schedule_4().max_lateness(&due_times), 24 + 7 - 25);
 	}
 }
