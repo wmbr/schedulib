@@ -91,6 +91,13 @@ impl JobSchedule {
 			run.time + run.duration - due_times[run.job]
 		}).max().expect("JobSchedule is empty")
 	}
+
+	/// Returns the number of tardy jobs in this JobSchedule.
+	pub fn num_tardy(&self, due_times: &[Time]) -> usize {
+		self.schedule.iter().filter(|&run| {
+			run.time + run.duration > due_times[run.job]
+		}).count()
+	}
 }
 
 impl fmt::Display for JobSchedule {
