@@ -25,8 +25,8 @@ pub fn serial_schedule_heuristic(
 ) -> Vec<MachineSchedule>
 {
 	let m = processing_times.len(); // number of machines
-	let n = processing_times[0].len(); // number of jobs
 	if m == 0 { return Vec::new(); }
+	let n = processing_times[0].len(); // number of jobs
 	let mut schedules = vec![MachineSchedule::new(); m];
 	if n == 0 { return schedules; }
 	let mut time = 0;
