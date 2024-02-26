@@ -120,6 +120,26 @@ impl fmt::Display for MachineSchedule {
 	}
 }
 
+
+/// A schedule of jobs on a set of mutliple machines
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct MultiMachineSchedule {
+	/// The schedule for each machine
+	pub machine_schedules: Vec<MachineSchedule>,
+}
+
+impl MultiMachineSchedule {
+	/// Returns the makespan (i.e. the maximum makespan of any machine).
+	pub fn makespan(&self) -> Time {
+		self.machine_schedules.iter().map( |s| s.makespan() ).max().unwrap_or(0)
+	}
+
+	/// Returns a schedule with no machines
+	pub fn new() -> MultiMachineSchedule {
+		MultiMachineSchedule { machine_schedules: Vec::new() }
+	}
+}
+
 #[cfg(test)]
 mod tests {
 

@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::jobs::{Time, Job, MachineSchedule, JobRun, Machine};
+use crate::jobs::{Time, Job, MachineSchedule, MultiMachineSchedule, JobRun, Machine};
 
 
 /// Makespan-minimization heuristic for scheduling on multiple unrelated machines with precedence constraints,
@@ -17,18 +17,22 @@ use crate::jobs::{Time, Job, MachineSchedule, JobRun, Machine};
 /// * `precedents`: Job precedents, where `precedents[i]` are the jobs that need to be completed before job `i` can be started.
 /// 
 /// # Returns
-/// A list of schedules, one for each machine.
+/// The resulting schedule.
 ///
 pub fn serial_schedule_heuristic(
 	processing_times: &[Vec<Time>],
 	precedents: Vec<Vec<Job>>
-) -> Vec<MachineSchedule>
+) -> MultiMachineSchedule
 {
 	let m = processing_times.len(); // number of machines
-	if m == 0 { return Vec::new(); }
+	if m == 0 {
+		return MultiMachineSchedule::new();
+	}
 	let n = processing_times[0].len(); // number of jobs
 	let mut schedules = vec![MachineSchedule::new(); m];
-	if n == 0 { return schedules; }
+	if n == 0 {
+		return MultiMachineSchedule{ machine_schedules: schedules }
+	}
 	let mut time = 0;
 	let mut pg = PrecedenceGraph::new(precedents);
 	let mut machines_busy_until : Vec<Time> = vec![0; m];
@@ -77,7 +81,9 @@ pub fn serial_schedule_heuristic(
 			});
 		}
 	}
-	schedules
+	MultiMachineSchedule{
+		machine_schedules: schedules
+	}
 }
 
 fn serial_schedule_heuristic_pick_next(
@@ -216,10 +222,10 @@ mod tests {
 			vec![],
 			vec![],
 		];
-		let schedules = serial_schedule_heuristic(&p, prec);
+		let schedule = serial_schedule_heuristic(&p, prec);
 		// optimal makespan is actually 12 
 		// (run jobs 3, 5, 4, 1 on machine 0)
-		assert!(schedules.iter().map(|s| s.makespan()).max().unwrap() <= 13);
+		assert!(schedule.makespan() <= 13);
 	}
 
 	#[test]
@@ -238,7 +244,7 @@ mod tests {
 			vec![1],
 			vec![2],
 		];
-		let schedules = serial_schedule_heuristic(&p, prec);
-		assert_eq!(schedules.iter().map(|s| s.makespan()).max().unwrap(), 13);
+		let schedule = serial_schedule_heuristic(&p, prec);
+		assert_eq!(schedule.makespan(), 13);
 	}
 }
