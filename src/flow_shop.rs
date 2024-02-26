@@ -52,10 +52,35 @@ where
 }
 
 
+/// Produces a heuristic schedule for a flow shop instance that aims to minimize makespan (i.e. for F||C_max)
+/// This function uses Dannebring's algorithm and takes O(n log n) time.
+/// See Dannenbring: "An evaluation of flow shop sequencing heuristics", 1977
+///
+/// # Arguments
+/// * processing_times: The processing times where `processing_times[i][j]` is the time needed by machine i for job j.
+///
+/// # Returns
+/// A permutation of the jobs (i.e. of 0..n-1) such that scheduling the jobs in this order on both machines yields the proposed schedule.
+pub fn dannenbring(processing_times: &[Vec<Time>]) -> Vec<Job> {
+	let m = processing_times.len(); // number of machines
+	if m == 0 {
+		return Vec::new()
+	}
+	let n = processing_times[0].len(); // number of jobs
+	let weights1 : Vec<_> = (0..n).map(
+		|j| (0..m).map( |i| ((m-i) as isize)*processing_times[i][j] ).sum()
+	).collect();
+	let weights2 : Vec<_> = (0..n).map(
+		|j| (0..m).map( |i| ((i+1) as isize)*processing_times[i][j] ).sum()
+	).collect();
+	johnson( &[weights1, weights2] )
+}
+
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::jobs::MultiMachineSchedule;
 
 	fn example_1() -> Vec<Vec<Time>> {
 		vec![vec![3, 2, 1], vec![4, 1, 5]]
@@ -76,5 +101,24 @@ mod tests {
 		container[..k].sort_unstable();
 		container[k..].sort_unstable();
 		assert_eq!(container, vec![0, 0, 2, 4, 4, 1, 3, 7]);
+	}
+
+	fn example_2() -> Vec<Vec<Time>> {
+		vec![
+			vec![3, 4, 10],
+			vec![11, 1, 5],
+			vec![7, 9, 13],
+			vec![10, 12, 2],
+		]
+		// the optimal flow shop schedule is given by the permutation 0, 3, 2, 1
+	}
+
+	#[test]
+	fn test_dannenbring_example_2() {
+		let processing_times = example_2();
+		let result = dannenbring(&processing_times);
+		let schedule = MultiMachineSchedule::from_order_durations(&result, &processing_times);
+		assert!(schedule.makespan() <= 40);
+		assert!(schedule.makespan() >= 39); // this is the optimal solution
 	}
 }

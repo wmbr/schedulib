@@ -138,11 +138,44 @@ impl MultiMachineSchedule {
 	pub fn new() -> MultiMachineSchedule {
 		MultiMachineSchedule { machine_schedules: Vec::new() }
 	}
+
+	/// Returns a schedule in which each job is processod on machine 0, 1, 2,... in order
+	/// and every machine processes the jobs according to the given `order`.
+	///
+	/// # Arguments
+	/// * order: Order in which jobs are processed by each machine
+	/// * durations: durations[i][j] is the time taken by machine i for job j.
+	pub fn from_order_durations(order: &[Job], durations: &[Vec<Time>]) -> MultiMachineSchedule {
+		let m = durations.len();
+		let mut result = MultiMachineSchedule{
+			machine_schedules: Vec::with_capacity(m)
+		};
+		if m == 0 {
+			return result;
+		}
+		let n = durations[0].len();
+		let mut ready_times = vec![0; n]; // time when each job is ready to be processed further
+		for i in 0..m {
+			let mut time = 0;
+			let mut schedule = MachineSchedule{ schedule: Vec::with_capacity(n) };
+			for &j in order {
+				let start = max(time, ready_times[j]);
+				schedule.schedule.push( JobRun{
+					time: start, 
+					job: j,
+					duration: durations[i][j],
+				});
+				time = start + durations[i][j];
+				ready_times[j] = time;
+			}
+			result.machine_schedules.push(schedule);
+		}
+		result
+	}
 }
 
 #[cfg(test)]
 mod tests {
-
 	use super::*;
 
 	fn example_schedule_1() -> MachineSchedule {
@@ -222,5 +255,18 @@ mod tests {
 	fn test_schedule_lateness_2() {
 		let due_times = vec![25, 24];
 		assert_eq!(example_schedule_4().max_lateness(&due_times), 24 + 7 - 25);
+	}
+
+	#[test]
+	fn test_multischedule_from_order_durations() {
+		let durations = vec![
+			vec![9, 1, 9, 4],
+			vec![6, 3, 5, 5],
+		];
+		let order = vec![2, 1, 3, 0];
+		let result = MultiMachineSchedule::from_order_durations(&order, &durations);
+		assert_eq!(result.machine_schedules[0], MachineSchedule::from_order_durations(order.into_iter(), &durations[0]));
+		assert_eq!(result.machine_schedules[1].schedule[3].time, 23);
+
 	}
 }
