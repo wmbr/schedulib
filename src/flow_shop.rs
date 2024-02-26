@@ -6,20 +6,20 @@ use crate::jobs::{Time, Job};
 /// See Johnson: "Optimal two- and three-stage production schedules with setup times included", 1954.
 ///
 /// # Arguments
-/// * processing_times: The processing time, where processing_times[i][j] is the time taken by machine i for job j
+/// * ptimes: The processing times, where ptimes[i][j] is the time taken by machine i for job j
 ///
 /// # Returns
 /// A permutation of the jobs (i.e. of 0..n-1) such that scheduling the jobs in this order on both machines
 /// is an optimal solution ot the given F2||C_max instance.
-pub fn johnson(processing_times: &[Vec<Time>]) -> Vec<Job> {
-	assert!(processing_times.len() == 2, "Instance must have exactly 2 machines");
-	let n = processing_times[0].len();
+pub fn johnson(ptimes: &[Vec<Time>]) -> Vec<Job> {
+	assert!(ptimes.len() == 2, "Instance must have exactly 2 machines");
+	let n = ptimes[0].len();
 	let mut result : Vec<Job> = (0..n).collect();
 	let num1 = partition_in_place(&mut result, 
-		|&j| processing_times[0][j] <= processing_times[1][j]
+		|&j| ptimes[0][j] <= ptimes[1][j]
 	);
-	result[..num1].sort_unstable_by_key( |&j|  processing_times[0][j] );
-	result[num1..].sort_unstable_by_key( |&j| -processing_times[1][j] );
+	result[..num1].sort_unstable_by_key( |&j|  ptimes[0][j] );
+	result[num1..].sort_unstable_by_key( |&j| -ptimes[1][j] );
 	result
 }
 
@@ -57,21 +57,21 @@ where
 /// See Dannenbring: "An evaluation of flow shop sequencing heuristics", 1977
 ///
 /// # Arguments
-/// * processing_times: The processing times where `processing_times[i][j]` is the time needed by machine i for job j.
+/// * ptimes: The processing times where `ptimes[i][j]` is the time needed by machine i for job j.
 ///
 /// # Returns
 /// A permutation of the jobs (i.e. of 0..n-1) such that scheduling the jobs in this order on both machines yields the proposed schedule.
-pub fn dannenbring(processing_times: &[Vec<Time>]) -> Vec<Job> {
-	let m = processing_times.len(); // number of machines
+pub fn dannenbring(ptimes: &[Vec<Time>]) -> Vec<Job> {
+	let m = ptimes.len(); // number of machines
 	if m == 0 {
 		return Vec::new()
 	}
-	let n = processing_times[0].len(); // number of jobs
+	let n = ptimes[0].len(); // number of jobs
 	let weights1 : Vec<_> = (0..n).map(
-		|j| (0..m).map( |i| ((m-i) as isize)*processing_times[i][j] ).sum()
+		|j| (0..m).map( |i| ((m-i) as isize)*ptimes[i][j] ).sum()
 	).collect();
 	let weights2 : Vec<_> = (0..n).map(
-		|j| (0..m).map( |i| ((i+1) as isize)*processing_times[i][j] ).sum()
+		|j| (0..m).map( |i| ((i+1) as isize)*ptimes[i][j] ).sum()
 	).collect();
 	johnson( &[weights1, weights2] )
 }
@@ -115,9 +115,9 @@ mod tests {
 
 	#[test]
 	fn test_dannenbring_example_2() {
-		let processing_times = example_2();
-		let result = dannenbring(&processing_times);
-		let schedule = MultiMachineSchedule::from_order_durations(&result, &processing_times);
+		let ptimes = example_2();
+		let result = dannenbring(&ptimes);
+		let schedule = MultiMachineSchedule::from_order_ptimes(&result, &ptimes);
 		assert!(schedule.makespan() <= 40);
 		assert!(schedule.makespan() >= 39); // this is the optimal solution
 	}

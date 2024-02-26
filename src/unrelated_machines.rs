@@ -13,28 +13,28 @@ use crate::jobs::{Time, Job, MachineSchedule, MultiMachineSchedule, JobRun, Mach
 /// precedence constraints" (doi:10.4304/jsw.6.6.1146-1153)
 ///
 /// # Arguments
-/// * `processing_times`: Job processing times, where `processing_times[i][j]` is the time taken by machine `i` to process job `j`.
-/// * `precedents`: Job precedents, where `precedents[i]` are the jobs that need to be completed before job `i` can be started.
+/// * `ptimes`: Job processing times, where `ptimes[i][j]` is the time taken by machine `i` to process job `j`.
+/// * `predecessor`: Job predecessors, where `predecessor[i]` are the jobs that need to be completed before job `i` can be started.
 /// 
 /// # Returns
 /// The resulting schedule.
 ///
 pub fn serial_schedule_heuristic(
-	processing_times: &[Vec<Time>],
-	precedents: Vec<Vec<Job>>
+	ptimes: &[Vec<Time>],
+	predecessor: Vec<Vec<Job>>
 ) -> MultiMachineSchedule
 {
-	let m = processing_times.len(); // number of machines
+	let m = ptimes.len(); // number of machines
 	if m == 0 {
 		return MultiMachineSchedule::new();
 	}
-	let n = processing_times[0].len(); // number of jobs
+	let n = ptimes[0].len(); // number of jobs
 	let mut schedules = vec![MachineSchedule::new(); m];
 	if n == 0 {
 		return MultiMachineSchedule{ machine_schedules: schedules }
 	}
 	let mut time = 0;
-	let mut pg = PrecedenceGraph::new(precedents);
+	let mut pg = PrecedenceGraph::new(predecessor);
 	let mut machines_busy_until : Vec<Time> = vec![0; m];
 	let mut completion_times : Vec<(Time, Job)> = Vec::new();
 	for counter in 0.. {
@@ -43,7 +43,7 @@ pub fn serial_schedule_heuristic(
 			.map(|(i, _)| i)
 			.collect();
 		let (machine, job, duration) = serial_schedule_heuristic_pick_next(
-			processing_times,
+			ptimes,
 			&idle_machines,
 			pg.available_jobs()
 		);
@@ -87,7 +87,7 @@ pub fn serial_schedule_heuristic(
 }
 
 fn serial_schedule_heuristic_pick_next(
-	processing_times: &[Vec<Time>],
+	ptimes: &[Vec<Time>],
 	idle_machines: &[Machine],
 	available_jobs: &[Job],
 ) -> (Machine, Job, Time)
@@ -100,16 +100,16 @@ fn serial_schedule_heuristic_pick_next(
 		// schedule the shortest job
 		machine = idle_machines[0];
 		(duration, job) = available_jobs.iter().map(|&j|
-			(processing_times[machine][j], j)
+			(ptimes[machine][j], j)
 		).min().unwrap();
 	} else {
 		// select the job with the highest processing time variance:
 		(job, _) = available_jobs.iter().map(|&j| {
 				// mean processing time:
 				let mean = 
-					processing_times.iter().map(|p| p[j] as f32).sum::<f32>()
+					ptimes.iter().map(|p| p[j] as f32).sum::<f32>()
 					/ idle_machines.len() as f32;
-				let variance = processing_times.iter().map(|p| 
+				let variance = ptimes.iter().map(|p| 
 					(p[j] as f32 - mean)*(p[j] as f32 - mean)
 				).sum::<f32>() / idle_machines.len() as f32;
 				(j, variance)
@@ -118,7 +118,7 @@ fn serial_schedule_heuristic_pick_next(
 		).unwrap();
 		// select the machine that's fastest for that job:
 		(machine, duration) = idle_machines.iter()
-			.map(|&i| (i, processing_times[i][job]) )
+			.map(|&i| (i, ptimes[i][job]) )
 			.min_by_key(|&(_, p)| p)
 			.unwrap();
 	}
@@ -128,7 +128,7 @@ fn serial_schedule_heuristic_pick_next(
 
 struct PrecedenceGraph {
 	available: Vec<Job>,
-	precedents: Vec<Vec<Job>>,
+	predecessor: Vec<Vec<Job>>,
 }
 
 impl PrecedenceGraph {
@@ -141,7 +141,7 @@ impl PrecedenceGraph {
 	pub fn mark_job_completed(&mut self, job: Job) {
 		self.mark_job_running(job);
 		// remove the job from every other job's precedence list
-		for (i, pr) in self.precedents.iter_mut().enumerate() {
+		for (i, pr) in self.predecessor.iter_mut().enumerate() {
 			if i != job && !pr.is_empty() {
 				if let Some(pos) = pr.iter().position(|&j| j == job) {
 					pr.swap_remove(pos);
@@ -160,17 +160,17 @@ impl PrecedenceGraph {
 			self.available.swap_remove(index);
 		}
 		// set job to be its own precedence to prevent it ever becoming avaiable again
-		self.precedents[job].clear();
-		self.precedents[job].push(job);
+		self.predecessor[job].clear();
+		self.predecessor[job].push(job);
 	}
 
-	pub fn new(precedents: Vec<Vec<Job>>) -> PrecedenceGraph {
-		let available = precedents.iter().enumerate().filter(
+	pub fn new(predecessor: Vec<Vec<Job>>) -> PrecedenceGraph {
+		let available = predecessor.iter().enumerate().filter(
 			|(_, p)| p.is_empty()
 		).map(|(i, _)| i).collect();
 		PrecedenceGraph {
 			available,
-			precedents,
+			predecessor,
 		}
 	}
 }

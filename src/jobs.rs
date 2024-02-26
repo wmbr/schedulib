@@ -23,9 +23,12 @@ pub struct MachineSchedule {
 }
 
 impl MachineSchedule {
-	pub fn from_durations(durations: &[Time]) -> MachineSchedule {
+	/// Construct a schedule from given processing times.
+	/// # Arguments
+	/// ptimes: ptimes[i] is the processing time of job i.
+	pub fn from_ptimes(ptimes: &[Time]) -> MachineSchedule {
 		let mut time = 0;
-		let schedule = durations.iter().enumerate().map(|(i, d)| {
+		let schedule = ptimes.iter().enumerate().map(|(i, d)| {
 			time += d;
 			JobRun{
 				time: time - d,
@@ -36,13 +39,17 @@ impl MachineSchedule {
 		MachineSchedule{ schedule }
 	}
 
-	pub fn from_order_durations<I>(order: I, durations: &[Time]) -> MachineSchedule 
+	/// Construct a schedule from a give job order and processing times.
+	/// # Arguments
+	/// order: The order of the jobs
+	/// ptimes: ptimes[i] is the processing time of job i.
+	pub fn from_order_ptimes<I>(order: I, ptimes: &[Time]) -> MachineSchedule 
 	where I: Iterator<Item = Job>
 	{
-		MachineSchedule::from_order_durations_releasetimes(
+		MachineSchedule::from_order_ptimes_releasetimes(
 			order,
-			durations,
-			&vec![0; durations.len()]
+			ptimes,
+			&vec![0; ptimes.len()]
 		)
 	}
 
@@ -50,28 +57,33 @@ impl MachineSchedule {
 		MachineSchedule { schedule: Vec::new() }
 	}
 
-	pub fn from_durations_releasetimes(durations: &[Time], release_times: &[Time]) -> MachineSchedule {
-		MachineSchedule::from_order_durations_releasetimes(
-			0..durations.len(),
-			durations,
+	pub fn from_ptimes_releasetimes(ptimes: &[Time], release_times: &[Time]) -> MachineSchedule {
+		MachineSchedule::from_order_ptimes_releasetimes(
+			0..ptimes.len(),
+			ptimes,
 			release_times
 		)
 	}
 
-	pub fn from_order_durations_releasetimes<I>(
+	/// Construct a schedule from a given job order and processing times and release times.
+	/// # Arguments
+	/// order: The order of the jobs
+	/// ptimes: ptimes[i] is the processing time of job i.
+	/// release_times: release_times[i] is the release time of job i.
+	pub fn from_order_ptimes_releasetimes<I>(
 		order: I,
-		durations: &[Time],
+		ptimes: &[Time],
 		release_times: &[Time]
 	) -> MachineSchedule
 	where I: Iterator<Item = Job>
 	{
 		let mut time = 0;
 		let schedule = order.map(|job| {
-			time = max(time, release_times[job]) + durations[job];
+			time = max(time, release_times[job]) + ptimes[job];
 			JobRun{
-				time: time - durations[job],
+				time: time - ptimes[job],
 				job: job,
-				duration: durations[job],
+				duration: ptimes[job],
 			}
 		}).collect();
 		MachineSchedule{ schedule }
@@ -144,16 +156,16 @@ impl MultiMachineSchedule {
 	///
 	/// # Arguments
 	/// * order: Order in which jobs are processed by each machine
-	/// * durations: durations[i][j] is the time taken by machine i for job j.
-	pub fn from_order_durations(order: &[Job], durations: &[Vec<Time>]) -> MultiMachineSchedule {
-		let m = durations.len();
+	/// * ptimes: ptimes[i][j] is the time taken by machine i for job j.
+	pub fn from_order_ptimes(order: &[Job], ptimes: &[Vec<Time>]) -> MultiMachineSchedule {
+		let m = ptimes.len();
 		let mut result = MultiMachineSchedule{
 			machine_schedules: Vec::with_capacity(m)
 		};
 		if m == 0 {
 			return result;
 		}
-		let n = durations[0].len();
+		let n = ptimes[0].len();
 		let mut ready_times = vec![0; n]; // time when each job is ready to be processed further
 		for i in 0..m {
 			let mut time = 0;
@@ -163,9 +175,9 @@ impl MultiMachineSchedule {
 				schedule.schedule.push( JobRun{
 					time: start, 
 					job: j,
-					duration: durations[i][j],
+					duration: ptimes[i][j],
 				});
-				time = start + durations[i][j];
+				time = start + ptimes[i][j];
 				ready_times[j] = time;
 			}
 			result.machine_schedules.push(schedule);
@@ -179,7 +191,7 @@ mod tests {
 	use super::*;
 
 	fn example_schedule_1() -> MachineSchedule {
-		MachineSchedule::from_durations_releasetimes(
+		MachineSchedule::from_ptimes_releasetimes(
 			&vec![ 5,  6,  7,  3,  6,  2],
 			&vec![10, 13, 11, 30,  0, 30]
 		)
@@ -197,7 +209,7 @@ mod tests {
 	}
 
 	fn example_schedule_2() -> MachineSchedule {
-		MachineSchedule::from_durations_releasetimes(
+		MachineSchedule::from_ptimes_releasetimes(
 			&vec![ 6,  5,  6,  7,  4,  3,  2],
 			&vec![ 0, 10, 13, 11, 20, 30, 30]
 		)
@@ -258,14 +270,14 @@ mod tests {
 	}
 
 	#[test]
-	fn test_multischedule_from_order_durations() {
-		let durations = vec![
+	fn test_multischedule_from_order_ptimes() {
+		let ptimes = vec![
 			vec![9, 1, 9, 4],
 			vec![6, 3, 5, 5],
 		];
 		let order = vec![2, 1, 3, 0];
-		let result = MultiMachineSchedule::from_order_durations(&order, &durations);
-		assert_eq!(result.machine_schedules[0], MachineSchedule::from_order_durations(order.into_iter(), &durations[0]));
+		let result = MultiMachineSchedule::from_order_ptimes(&order, &ptimes);
+		assert_eq!(result.machine_schedules[0], MachineSchedule::from_order_ptimes(order.into_iter(), &ptimes[0]));
 		assert_eq!(result.machine_schedules[1].schedule[3].time, 23);
 
 	}

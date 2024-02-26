@@ -13,12 +13,12 @@ use std::collections::BinaryHeap;
 /// * `jobs`: A list of jobs.
 ///
 pub fn schrage(
-	processing_times: &[Time],
+	ptimes: &[Time],
 	release_times: &[Time],
 	due_times: &[Time]
 ) -> MachineSchedule
 {
-	let mut jobs: Vec<Job> = (0..processing_times.len()).collect();
+	let mut jobs: Vec<Job> = (0..ptimes.len()).collect();
 	// sort by descending release time
 	// because we want to pop the jobs with lowest release time first
 	jobs.sort_unstable_by_key(|&job| -release_times[job]);
@@ -40,14 +40,14 @@ pub fn schrage(
 			let job = jobs.pop().unwrap();
 			// first and second tuple entry are just to determine the correct order
 			ready_to_run.push(
-				( -due_times[job], processing_times[job], job )
+				( -due_times[job], ptimes[job], job )
 			);
 		}
 		// If there are jobs that are ready to run, schedule them
 		match ready_to_run.pop() {
 			Some((_, _, job)) => {
 				schedule.push(job);
-				t += processing_times[job];
+				t += ptimes[job];
 			},
 			None => {
 				// If there aren't any jobs that can be run,
@@ -57,7 +57,7 @@ pub fn schrage(
 			}
 		};
 	}
-	MachineSchedule::from_order_durations_releasetimes(schedule.into_iter(), processing_times, release_times)
+	MachineSchedule::from_order_ptimes_releasetimes(schedule.into_iter(), ptimes, release_times)
 }
 
 
@@ -72,8 +72,8 @@ pub fn schrage(
 ///
 /// * `jobs`: A list of jobs.
 ///
-pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[Time]) -> MachineSchedule {
-	if processing_times.is_empty() {
+pub fn carlier(ptimes: &[Time], release_times: &[Time], due_times: &[Time]) -> MachineSchedule {
+	if ptimes.is_empty() {
 		return MachineSchedule{ schedule: vec![] }
 	}
 	let mut subproblems = BinaryHeap::new();
@@ -91,7 +91,7 @@ pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[T
 			continue;
 		}
 		let result = carlier_iteration(
-			processing_times,
+			ptimes,
 			node.release_times,
 			node.due_times,
 			best_lateness
@@ -130,13 +130,13 @@ struct CarlierResult {
 }
 
 fn carlier_iteration(
-	processing_times: &[Time],
+	ptimes: &[Time],
 	mut release_times: Vec<Time>,
 	mut due_times: Vec<Time>,
 	upper_bound: Time
 ) -> CarlierResult
 {
-	let schedule = schrage(processing_times, &release_times, &due_times);
+	let schedule = schrage(ptimes, &release_times, &due_times);
 	let (a, p) = critical_path(&schedule, &due_times);
 	let sched = &schedule.schedule;
 	let pjob = sched[p].job;
@@ -167,10 +167,10 @@ fn carlier_iteration(
 
 	for i in (a..=c).chain(p+1..sched.len()) {
 		let job = sched[i].job;
-		if processing_times[job] > upper_bound - crit_bound {
+		if ptimes[job] > upper_bound - crit_bound {
 			// this job cannot be scheduled inside the critical set
 
-			if release_times[job] + processing_times[job] + crit_duration 
+			if release_times[job] + ptimes[job] + crit_duration 
 				> upper_bound + crit_max_due
 			{
 				// this job has to be scheduled after the critical set
@@ -178,7 +178,7 @@ fn carlier_iteration(
 					release_times[job],
 					crit_min_release + crit_duration
 				);
-			} else if crit_min_release + crit_duration + processing_times[job]
+			} else if crit_min_release + crit_duration + ptimes[job]
 				> upper_bound + due_times[job]
 			{
 				// this job has to be scheduled before the critical set
@@ -260,7 +260,7 @@ mod tests {
 	#[test]
 	fn test_schrage_1() {
 		let (p, r, d) = example_1();
-		let expected_result = MachineSchedule::from_order_durations_releasetimes(
+		let expected_result = MachineSchedule::from_order_ptimes_releasetimes(
 			vec![5, 0, 1, 3, 2, 6, 4].into_iter(),
 			&p,
 			&r
@@ -273,7 +273,7 @@ mod tests {
 	#[test]
 	fn test_critical_path() {
 		let (p, r, d) = example_1();
-		let schedule = MachineSchedule::from_durations_releasetimes(&p, &r);
+		let schedule = MachineSchedule::from_ptimes_releasetimes(&p, &r);
 		assert_eq!(critical_path(&schedule, &d), (0, 5));
 	}
 
@@ -289,7 +289,7 @@ mod tests {
 	#[test]
 	fn test_critical_path_2() {
 		let (p, r, d) = example_2();
-		let schedule = MachineSchedule::from_order_durations_releasetimes(
+		let schedule = MachineSchedule::from_order_ptimes_releasetimes(
 			vec![5, 0, 1, 2, 3, 4, 6].into_iter(),
 			&p,
 			&r
@@ -301,7 +301,7 @@ mod tests {
 	fn test_schrage_2() {
 		let (p, r, d) = example_2();
 		let schedule = schrage(&p, &r, &d);
-		let expected_result = MachineSchedule::from_order_durations_releasetimes(
+		let expected_result = MachineSchedule::from_order_ptimes_releasetimes(
 			vec![5, 0, 1, 2, 3, 4, 6].into_iter(),
 			&p,
 			&r
@@ -313,7 +313,7 @@ mod tests {
 	fn test_carlier_example_2() {
 		let (p, r, d) = example_2();
 		let schedule = carlier(&p, &r, &d);
-		let expected_result = MachineSchedule::from_order_durations_releasetimes(
+		let expected_result = MachineSchedule::from_order_ptimes_releasetimes(
 			vec![5, 2, 1, 3, 0, 4, 6].into_iter(),
 			&p,
 			&r

@@ -6,11 +6,11 @@ use std::collections::BinaryHeap;
 ///
 /// See Blazewicz et al, "Handbook on Scheduling", alg. 4.3.6.
 pub fn schedule_hodgson(
-	processing_times: &[Time],
+	ptimes: &[Time],
 	due_times: &[Time]
 ) -> MachineSchedule
 {
-	let n = processing_times.len();
+	let n = ptimes.len();
 	// vector of jobs
 	let mut jobs : Vec<Job> = (0..n).collect();
 	// sort by earliest due time last, because we will iterate back-to-front
@@ -23,8 +23,8 @@ pub fn schedule_hodgson(
 	let mut duration = 0;
 	for i in (0..n).rev() {
 		let job = jobs[i];
-		jobs_on_time.push((processing_times[job], job));
-		duration += processing_times[job];
+		jobs_on_time.push((ptimes[job], job));
+		duration += ptimes[job];
 		if duration > due_times[job] {
 			// if not all jobs can be on time, have the longest job be late
 			let (pt, longest_job) = jobs_on_time.pop().unwrap();
@@ -42,9 +42,9 @@ pub fn schedule_hodgson(
 	}
 	// restore due time order for the jobs on time
 	jobs[0..n-num_late].sort_unstable_by_key(|&job| due_times[job]);
-	MachineSchedule::from_order_durations(
+	MachineSchedule::from_order_ptimes(
 		jobs.into_iter(),
-		&processing_times
+		&ptimes
 	)
 }
 

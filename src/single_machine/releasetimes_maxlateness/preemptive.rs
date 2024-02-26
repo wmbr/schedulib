@@ -9,17 +9,17 @@ use std::collections::BinaryHeap;
 ///
 /// # Arguments
 ///
-/// * `processing_times`: The processing times of the jobs
+/// * `ptimes`: The processing times of the jobs
 /// * `release_times`: The release times of the jobs
 /// * `due_times`: due times of the jobs
 ///
 pub fn edd_preemptive(
-	mut processing_times: Vec<Time>,
+	mut ptimes: Vec<Time>,
 	release_times: &[Time],
 	due_times: &[Time]
 ) -> MachineSchedule
 {
-	let mut jobs: Vec<Job> = (0..processing_times.len()).collect();
+	let mut jobs: Vec<Job> = (0..ptimes.len()).collect();
 	// sort by descending release time
 	// because we want to pop the jobs with lowest release time first
 	jobs.sort_unstable_by_key(|&job| -release_times[job]);
@@ -45,24 +45,24 @@ pub fn edd_preemptive(
 			Some((_, job)) => {
 				// If that job is alread scheduled, just extend its duration
 				if !schedule.is_empty() && schedule.last().unwrap().job == job {
-					schedule.last_mut().unwrap().duration += processing_times[job];
+					schedule.last_mut().unwrap().duration += ptimes[job];
 				} else {
 					schedule.push(JobRun {
 						time: t,
 						job,
-						duration: processing_times[job]
+						duration: ptimes[job]
 					});
 				}
-				t += processing_times[job];
+				t += ptimes[job];
 				// check if a new job arrives before this one is done
 				if !jobs.is_empty() {
 					let next_delivery = release_times[*jobs.last().unwrap()];
 					if next_delivery < t {
 						// add this job back to the heap with the remaining processing time:
-						processing_times[job] = t - next_delivery;
+						ptimes[job] = t - next_delivery;
 						ready_to_run.push(( -due_times[job], job ));
 						// shorten duration of the scheduled run accordingly:
-						schedule.last_mut().unwrap().duration -= processing_times[job];
+						schedule.last_mut().unwrap().duration -= ptimes[job];
 						t = next_delivery;
 					}
 				}
