@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job, MachineSchedule, JobRun};
+use crate::{Time, Job, MachineSchedule, JobRun};
 use std::cmp::{max, min, Reverse};
 use std::collections::BinaryHeap;
 

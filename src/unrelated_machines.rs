@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::jobs::{Time, Job, MachineSchedule, MultiMachineSchedule, JobRun, Machine};
+use crate::{Time, Job, MachineSchedule, MultiMachineSchedule, JobRun, Machine};
 
 
 /// Makespan-minimization heuristic for scheduling on multiple unrelated machines with precedence constraints,

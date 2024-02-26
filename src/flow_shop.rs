@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job};
+use crate::{Time, Job};
 
 
 /// Optimally schedules jobs in a 2-machine flow shop to minimize makespan.
@@ -80,7 +80,7 @@ pub fn dannenbring(ptimes: &[Vec<Time>]) -> Vec<Job> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::jobs::MultiMachineSchedule;
+	use crate::MultiMachineSchedule;
 
 	fn example_1() -> Vec<Vec<Time>> {
 		vec![vec![3, 2, 1], vec![4, 1, 5]]

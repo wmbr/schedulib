@@ -1,9 +1,8 @@
+use crate::{Time, Job};
+
 use std::cmp::max;
 use std::fmt;
 
-pub type Time = isize; // allowing negative times can be useful occasionally
-pub type Job = usize; // jobs are ids
-pub type Machine = usize; // machines are ids
 
 /// A job with an assigned starting time and duration
 /// Durations should be positive

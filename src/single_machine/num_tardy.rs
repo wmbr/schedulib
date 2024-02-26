@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job, MachineSchedule};
+use crate::{Time, Job, MachineSchedule};
 
 use std::collections::BinaryHeap;
 
