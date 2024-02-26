@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job, JobSchedule, JobRun};
+use crate::jobs::{Time, Job, MachineSchedule, JobRun};
 use std::collections::BinaryHeap;
 
 
@@ -17,7 +17,7 @@ pub fn edd_preemptive(
 	mut processing_times: Vec<Time>,
 	release_times: &[Time],
 	due_times: &[Time]
-) -> JobSchedule
+) -> MachineSchedule
 {
 	let mut jobs: Vec<Job> = (0..processing_times.len()).collect();
 	// sort by descending release time
@@ -75,7 +75,7 @@ pub fn edd_preemptive(
 			}
 		};
 	}
-	JobSchedule{ schedule }
+	MachineSchedule{ schedule }
 }
 
 #[cfg(test)]
@@ -94,7 +94,7 @@ mod tests {
 	#[test]
 	fn test_edd_preemptive_1() {
 		let (p, r, d) = example_1();
-		let expected_result = JobSchedule{
+		let expected_result = MachineSchedule{
 			schedule: vec![
 				JobRun{ time:  0, job: 5, duration: 6 },
 				JobRun{ time: 10, job: 0, duration: 5 },

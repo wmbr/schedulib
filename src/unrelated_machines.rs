@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::jobs::{Time, Job, JobSchedule, JobRun, Machine};
+use crate::jobs::{Time, Job, MachineSchedule, JobRun, Machine};
 
 
 /// Makespan-minimization heuristic for scheduling on multiple unrelated machines with precedence constraints,
@@ -22,12 +22,12 @@ use crate::jobs::{Time, Job, JobSchedule, JobRun, Machine};
 pub fn serial_schedule_heuristic(
 	processing_times: &[Vec<Time>],
 	precedents: Vec<Vec<Job>>
-) -> Vec<JobSchedule>
+) -> Vec<MachineSchedule>
 {
 	let m = processing_times.len(); // number of machines
 	let n = processing_times[0].len(); // number of jobs
 	if m == 0 { return Vec::new(); }
-	let mut schedules = vec![JobSchedule::new(); m];
+	let mut schedules = vec![MachineSchedule::new(); m];
 	if n == 0 { return schedules; }
 	let mut time = 0;
 	let mut pg = PrecedenceGraph::new(precedents);

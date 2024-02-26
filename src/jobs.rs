@@ -14,16 +14,16 @@ pub struct JobRun {
 	pub duration: Time,
 }
 
-/// A schedule of jobs on a single machine (without preemptions)
+/// A schedule of jobs on a single machine
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct JobSchedule {
+pub struct MachineSchedule {
 	/// List of job executions, sorted by time.
 	/// If jobs can be preempted, the same job may appear in multiple entries.
 	pub schedule: Vec<JobRun>,
 }
 
-impl JobSchedule {
-	pub fn from_durations(durations: &[Time]) -> JobSchedule {
+impl MachineSchedule {
+	pub fn from_durations(durations: &[Time]) -> MachineSchedule {
 		let mut time = 0;
 		let schedule = durations.iter().enumerate().map(|(i, d)| {
 			time += d;
@@ -33,25 +33,25 @@ impl JobSchedule {
 				duration: *d,
 			}
 		}).collect();
-		JobSchedule{ schedule }
+		MachineSchedule{ schedule }
 	}
 
-	pub fn from_order_durations<I>(order: I, durations: &[Time]) -> JobSchedule 
+	pub fn from_order_durations<I>(order: I, durations: &[Time]) -> MachineSchedule 
 	where I: Iterator<Item = Job>
 	{
-		JobSchedule::from_order_durations_releasetimes(
+		MachineSchedule::from_order_durations_releasetimes(
 			order,
 			durations,
 			&vec![0; durations.len()]
 		)
 	}
 
-	pub fn new() -> JobSchedule {
-		JobSchedule { schedule: Vec::new() }
+	pub fn new() -> MachineSchedule {
+		MachineSchedule { schedule: Vec::new() }
 	}
 
-	pub fn from_durations_releasetimes(durations: &[Time], release_times: &[Time]) -> JobSchedule {
-		JobSchedule::from_order_durations_releasetimes(
+	pub fn from_durations_releasetimes(durations: &[Time], release_times: &[Time]) -> MachineSchedule {
+		MachineSchedule::from_order_durations_releasetimes(
 			0..durations.len(),
 			durations,
 			release_times
@@ -62,7 +62,7 @@ impl JobSchedule {
 		order: I,
 		durations: &[Time],
 		release_times: &[Time]
-	) -> JobSchedule
+	) -> MachineSchedule
 	where I: Iterator<Item = Job>
 	{
 		let mut time = 0;
@@ -74,25 +74,25 @@ impl JobSchedule {
 				duration: durations[job],
 			}
 		}).collect();
-		JobSchedule{ schedule }
+		MachineSchedule{ schedule }
 	}
 
-	/// Returns the makespan of this JobSchedule.
+	/// Returns the makespan of this MachineSchedule.
 	pub fn makespan(&self) -> Time {
 		self.schedule.last().map(|run| run.time + run.duration).unwrap_or(0)
 	}
 
-	/// Returns the maximum lateness of this JobSchedule for the given due dates
+	/// Returns the maximum lateness of this MachineSchedule for the given due dates
 	///
 	/// # Arguments:
 	/// * `due_times` A vector containing at position `i` the due date for job `i`.
 	pub fn max_lateness(&self, due_times: &[Time]) -> Time {
 		self.schedule.iter().map(|run| {
 			run.time + run.duration - due_times[run.job]
-		}).max().expect("JobSchedule is empty")
+		}).max().expect("MachineSchedule is empty")
 	}
 
-	/// Returns the number of tardy jobs in this JobSchedule.
+	/// Returns the number of tardy jobs in this MachineSchedule.
 	pub fn num_tardy(&self, due_times: &[Time]) -> usize {
 		self.schedule.iter().filter(|&run| {
 			run.time + run.duration > due_times[run.job]
@@ -100,10 +100,10 @@ impl JobSchedule {
 	}
 }
 
-impl fmt::Display for JobSchedule {
+impl fmt::Display for MachineSchedule {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		if self.schedule.is_empty() {
-			write!(f, "(Empty JobSchedule)")
+			write!(f, "(Empty MachineSchedule)")
 		} else {
 			let maxlen = self.makespan().to_string().len();
 			for run in self.schedule.iter(){
@@ -125,8 +125,8 @@ mod tests {
 
 	use super::*;
 
-	fn example_schedule_1() -> JobSchedule {
-		JobSchedule::from_durations_releasetimes(
+	fn example_schedule_1() -> MachineSchedule {
+		MachineSchedule::from_durations_releasetimes(
 			&vec![ 5,  6,  7,  3,  6,  2],
 			&vec![10, 13, 11, 30,  0, 30]
 		)
@@ -143,8 +143,8 @@ mod tests {
 		assert_eq!(example_schedule_1().max_lateness(&due_times), 22)
 	}
 
-	fn example_schedule_2() -> JobSchedule {
-		JobSchedule::from_durations_releasetimes(
+	fn example_schedule_2() -> MachineSchedule {
+		MachineSchedule::from_durations_releasetimes(
 			&vec![ 6,  5,  6,  7,  4,  3,  2],
 			&vec![ 0, 10, 13, 11, 20, 30, 30]
 		)
@@ -162,14 +162,14 @@ mod tests {
 	}
 
 	// schedule with preemptions:
-	fn example_schedule_3() -> JobSchedule {
+	fn example_schedule_3() -> MachineSchedule {
 		let schedule = vec![
 			JobRun{ time: 0,  job: 0, duration: 5 },
 			JobRun{ time: 5,  job: 1, duration: 8 },
 			JobRun{ time: 13, job: 0, duration: 9 },
 			JobRun{ time: 42, job: 2, duration: 10 },
 		];
-		JobSchedule{ schedule }
+		MachineSchedule{ schedule }
 	}
 
 	#[test]
@@ -184,13 +184,13 @@ mod tests {
 	}
 
 	// schedule with preemptions:
-	fn example_schedule_4() -> JobSchedule {
+	fn example_schedule_4() -> MachineSchedule {
 		let schedule = vec![
 			JobRun{ time: 3,  job: 0, duration: 13 },
 			JobRun{ time: 16, job: 1, duration: 8 },
 			JobRun{ time: 24, job: 0, duration: 7 },
 		];
-		JobSchedule{ schedule }
+		MachineSchedule{ schedule }
 	}
 
 	#[test]

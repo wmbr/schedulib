@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job, JobSchedule, JobRun};
+use crate::jobs::{Time, Job, MachineSchedule, JobRun};
 use std::cmp::{max, min, Reverse};
 use std::collections::BinaryHeap;
 
@@ -16,7 +16,7 @@ pub fn schrage(
 	processing_times: &[Time],
 	release_times: &[Time],
 	due_times: &[Time]
-) -> JobSchedule
+) -> MachineSchedule
 {
 	let mut jobs: Vec<Job> = (0..processing_times.len()).collect();
 	// sort by descending release time
@@ -57,7 +57,7 @@ pub fn schrage(
 			}
 		};
 	}
-	JobSchedule::from_order_durations_releasetimes(schedule.into_iter(), processing_times, release_times)
+	MachineSchedule::from_order_durations_releasetimes(schedule.into_iter(), processing_times, release_times)
 }
 
 
@@ -72,9 +72,9 @@ pub fn schrage(
 ///
 /// * `jobs`: A list of jobs.
 ///
-pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[Time]) -> JobSchedule {
+pub fn carlier(processing_times: &[Time], release_times: &[Time], due_times: &[Time]) -> MachineSchedule {
 	if processing_times.is_empty() {
-		return JobSchedule{ schedule: vec![] }
+		return MachineSchedule{ schedule: vec![] }
 	}
 	let mut subproblems = BinaryHeap::new();
 	subproblems.push( Reverse((
@@ -124,7 +124,7 @@ struct CarlierNode {
 
 #[derive(Debug, Clone)]
 struct CarlierResult {
-	schedule: JobSchedule,
+	schedule: MachineSchedule,
 	lower_bound: Time,
 	subproblems: Option<[CarlierNode; 2]> // if this is None, the given schedule is optimal
 }
@@ -225,7 +225,7 @@ fn carlier_iteration(
 
 /// Returns (a, b) such that the critical path is formed 
 /// by schedule[a] up to (including) schedule[b]
-fn critical_path(schedule: &JobSchedule, due_times: &[Time]) -> (usize, usize) {
+fn critical_path(schedule: &MachineSchedule, due_times: &[Time]) -> (usize, usize) {
 	let schedule = &schedule.schedule;
 	let latenesses = schedule.iter().enumerate().map(
 		|(i, JobRun{ time: t, job, duration: d })|
@@ -260,7 +260,7 @@ mod tests {
 	#[test]
 	fn test_schrage_1() {
 		let (p, r, d) = example_1();
-		let expected_result = JobSchedule::from_order_durations_releasetimes(
+		let expected_result = MachineSchedule::from_order_durations_releasetimes(
 			vec![5, 0, 1, 3, 2, 6, 4].into_iter(),
 			&p,
 			&r
@@ -273,7 +273,7 @@ mod tests {
 	#[test]
 	fn test_critical_path() {
 		let (p, r, d) = example_1();
-		let schedule = JobSchedule::from_durations_releasetimes(&p, &r);
+		let schedule = MachineSchedule::from_durations_releasetimes(&p, &r);
 		assert_eq!(critical_path(&schedule, &d), (0, 5));
 	}
 
@@ -289,7 +289,7 @@ mod tests {
 	#[test]
 	fn test_critical_path_2() {
 		let (p, r, d) = example_2();
-		let schedule = JobSchedule::from_order_durations_releasetimes(
+		let schedule = MachineSchedule::from_order_durations_releasetimes(
 			vec![5, 0, 1, 2, 3, 4, 6].into_iter(),
 			&p,
 			&r
@@ -301,7 +301,7 @@ mod tests {
 	fn test_schrage_2() {
 		let (p, r, d) = example_2();
 		let schedule = schrage(&p, &r, &d);
-		let expected_result = JobSchedule::from_order_durations_releasetimes(
+		let expected_result = MachineSchedule::from_order_durations_releasetimes(
 			vec![5, 0, 1, 2, 3, 4, 6].into_iter(),
 			&p,
 			&r
@@ -313,7 +313,7 @@ mod tests {
 	fn test_carlier_example_2() {
 		let (p, r, d) = example_2();
 		let schedule = carlier(&p, &r, &d);
-		let expected_result = JobSchedule::from_order_durations_releasetimes(
+		let expected_result = MachineSchedule::from_order_durations_releasetimes(
 			vec![5, 2, 1, 3, 0, 4, 6].into_iter(),
 			&p,
 			&r

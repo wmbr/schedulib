@@ -1,4 +1,4 @@
-use crate::jobs::{Time, Job, JobSchedule};
+use crate::jobs::{Time, Job, MachineSchedule};
 
 use std::collections::BinaryHeap;
 
@@ -8,7 +8,7 @@ use std::collections::BinaryHeap;
 pub fn schedule_hodgson(
 	processing_times: &[Time],
 	due_times: &[Time]
-) -> JobSchedule
+) -> MachineSchedule
 {
 	let n = processing_times.len();
 	// vector of jobs
@@ -42,7 +42,7 @@ pub fn schedule_hodgson(
 	}
 	// restore due time order for the jobs on time
 	jobs[0..n-num_late].sort_unstable_by_key(|&job| due_times[job]);
-	JobSchedule::from_order_durations(
+	MachineSchedule::from_order_durations(
 		jobs.into_iter(),
 		&processing_times
 	)
